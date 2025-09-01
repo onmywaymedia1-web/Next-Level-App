@@ -6,7 +6,11 @@ const cx=(...a)=>a.filter(Boolean).join(' ');
 const Btn=({kind="primary",className="",...p})=> <button className={cx("inline-flex items-center gap-2 px-3 py-2 rounded-2xl border text-sm select-none", kind==="primary"?"bg-emerald-600/80 border-emerald-500/50 hover:bg-emerald-600":"bg-neutral-800 border-neutral-700 hover:bg-neutral-700", className)} {...p}/>;
 const Card=({className="",...p})=> <section className={cx("rounded-2xl border border-neutral-800 bg-neutral-900/60",className)} {...p}/>;
 const H=(p)=> <h3 className="text-lg font-semibold" {...p}/>;
-const Input=(p)=> <input className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2" {...p}/>;
+const Input=(p)=>
+  <input
+    className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 text-white placeholder-gray-400"
+    {...p}
+  />;
 const Textarea=(p)=> <textarea className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 min-h-[84px]" {...p}/>;
 const Sep=()=> <div className="h-px w-full bg-neutral-800 my-2"/>;
 const Progress=({v=0})=> <div className="w-full h-2 rounded-full bg-neutral-800 overflow-hidden"><div className="h-full bg-emerald-500" style={{width:`${Math.min(100,Math.max(0,v))}%`}}/></div>;
@@ -22,7 +26,7 @@ function rangeText(d=new Date()){ const s=weekStartMonday(d); const e=weekEndSun
 const STORAGE_KEY='nextlevel.ultra.v3'; const STORE_VERSION=3;
 const DEFAULT_MISSIONS=[
   { id: rid(), name:"No Weed/Alcohol/Drugs", weight:7, active:true, hiddenOnShare:false, polarity:'neg' },
-  { id: rid(), name:"No Porn/Casual Sex",   weight:7, active:true, hiddenOnShare:false, polarity:'neg' },
+  { id: rid(), name:"No BN/Casual Sex",   weight:7, active:true, hiddenOnShare:false, polarity:'neg' },
   { id: rid(), name:"Workout",               weight:5, active:true, hiddenOnShare:false, polarity:'pos' },
   { id: rid(), name:"Clean Diet",            weight:5, active:true, hiddenOnShare:false, polarity:'pos' },
   { id: rid(), name:"Sleep / Wake on Time",  weight:4, active:true, hiddenOnShare:false, polarity:'pos' },
