@@ -234,7 +234,17 @@ function App(){
       return {...s, missions:ms, currentWeek:{...s.currentWeek}};
     });
   }
-  function removeMission(id){ setStore(s=> ({...s, missions: s.missions.filter(m=>m.id!==id)})); }
+  function removeMission(id){
+  setStore(s => {
+    const missions = s.missions.filter(m => m.id !== id);
+    const w = deep(s.currentWeek);
+    w.templateSnapshot = w.templateSnapshot.filter(m => m.id !== id);
+    for (const d of w.dayEntries) {
+      delete d.pointsByMission[id];
+    }
+    return {...s, missions, currentWeek: w};
+  });
+}
   function resetAll(){ if(confirm('Erase all data?')){ localStorage.removeItem(STORAGE_KEY); location.reload(); } }
 
   const energyToday = energyForDay(store.currentWeek, currentEntry);
