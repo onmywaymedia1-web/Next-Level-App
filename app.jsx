@@ -13,7 +13,12 @@ const Btn=({kind="primary",className="",...p})=>(
 );
 const Card=({className="",...p})=> <section className={cx("rounded-2xl border border-neutral-800 bg-neutral-900/60",className)} {...p}/>;
 const H=(p)=> <h3 className="text-lg font-semibold" {...p}/>;
-const Input=(p)=><input className={cx("w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 text-white placeholder-gray-400",p.className)} {...p}/>;
+const Input = (p) => (
+  <input
+    className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 text-white placeholder-neutral-400"
+    {...p}
+  />
+);
 const Textarea=(p)=><textarea className="w-full rounded-xl bg-neutral-900 border border-neutral-800 px-3 py-2 min-h-[84px] text-white placeholder-gray-400" {...p}/>;
 const Select=(p)=><select className="bg-neutral-900 text-white border border-neutral-800 rounded-xl px-2 py-1" {...p}/>;
 const Sep=()=> <div className="h-px w-full bg-neutral-800 my-2"/>;
