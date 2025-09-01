@@ -77,8 +77,47 @@ const badgeForPct=(p)=> p>=90? 'Platinum' : p>=80? 'Gold' : p>=70? 'Silver' : p>
 function applyBonusesAndMulligan(week){ const maxPerDay=dayPossible(week.templateSnapshot); const pctFor=(d)=> maxPerDay? (computeDayEarned({...d,streakApplied:0})/maxPerDay)*100:0; let cur=0; for(const d of week.dayEntries){ if(pctFor(d)>=80){ cur++; if(cur>=3){ const mult=Math.min(1.1+0.05*(cur-3),1.3); const base=Object.values(d.pointsByMission).reduce((a,v)=>a+(Array.isArray(v)?v.reduce((aa,x)=>aa+dotScore(x),0):(v||0)),0); d.streakApplied=Math.round(base*(mult-1)); } } else cur=0; } let low=Infinity, idx=0; week.dayEntries.forEach((d,i)=>{ const e=computeDayEarned(d); if(e<low){low=e; idx=i;} }); const sixty=Math.round(maxPerDay*0.6); const dd=week.dayEntries[idx]; if(computeDayEarned(dd)<sixty){ const delta=sixty-computeDayEarned(dd); dd.mulligan=true; dd.earnedBonus=(dd.earnedBonus||0)+delta; week.totals.mulliganUsed=true; } const totals=computeWeekTotals(week); week.totals={...week.totals, ...totals, badge: badgeForPct(totals.pct)}; }
 
 function toDots(v, weight){ if (Array.isArray(v)) return v.slice(0,weight).concat(Array(Math.max(0, weight-(v.length||0))).fill(0)); const filled = Math.max(0, Math.min(weight, Number(v)||0)); return Array.from({length:weight}, (_,i)=> i<filled?1:0); }
-function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(!raw){ const missions=deep(DEFAULT_MISSIONS); return {version:STORE_VERSION, missions, currentWeek:newWeekFromTemplate(missions,new Date()), history:[], settings:{displayName:'Player One', avatarUrl:'', incomeEnabled:false}}; } let s=JSON.parse(raw); if(!s.version) s.version=1; if(Array.isArray(s.missions)) s.missions=s.missions.map(ensurePolarity); if(s.currentWeek?.templateSnapshot) s.currentWeek.templateSnapshot=s.currentWeek.templateSnapshot.map(ensurePolarity); for(const day of s.currentWeek?.dayEntries||[]){ for(const m of s.currentWeek.templateSnapshot){ const v = day.pointsByMission?.[m.id]; day.pointsByMission[m.id]= toDots(v, m.weight); } } for(const w of s.history||[]){ for(const day of w.dayEntries||[]){ for(const m of w.templateSnapshot||[]){ const v = day.pointsByMission?.[m.id]; day.pointsByMission[m.id]= toDots(v, m.weight); } } } return s; }catch(e){ localStorage.removeItem(STORAGE_KEY); return load(); } }
-const save=(s)=> localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+function load(){
+  const defaults = () => {
+    const missions = deep(DEFAULT_MISSIONS);
+    return {
+      version: STORE_VERSION,
+      missions,
+      currentWeek: newWeekFromTemplate(missions, new Date()),
+      history: [],
+      settings: { displayName:'Player One', avatarUrl:'', incomeEnabled:false }
+    };
+  };
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaults();
+
+    let s = JSON.parse(raw);
+
+    if(!s.version) s.version=1;
+    if(Array.isArray(s.missions)) s.missions=s.missions.map(ensurePolarity);
+    if(s.currentWeek?.templateSnapshot) s.currentWeek.templateSnapshot=s.currentWeek.templateSnapshot.map(ensurePolarity);
+
+    for(const day of s.currentWeek?.dayEntries||[]){
+      for(const m of s.currentWeek.templateSnapshot){
+        const v = day.pointsByMission?.[m.id];
+        day.pointsByMission[m.id]= toDots(v, m.weight);
+      }
+    }
+    for(const w of s.history||[]){
+      for(const day of w.dayEntries||[]){
+        for(const m of w.templateSnapshot||[]){
+          const v = day.pointsByMission?.[m.id];
+          day.pointsByMission[m.id]= toDots(v, m.weight);
+        }
+      }
+    }
+    return s;
+  }catch(e){
+    console.warn('load() failed; using defaults', e);
+    return defaults();
+  }
+}
 
 function App(){
   const [store,setStore]=useState(load());
@@ -98,7 +137,24 @@ function App(){
   function cycleDot(missionId, dotIdx){ setStore(s=>{ const w=deep(s.currentWeek); const i=w.dayEntries.findIndex(d=>d.dateISO===todayISO); if(i<0) return s; const m=w.templateSnapshot.find(x=>x.id===missionId); if(!m) return s; const arr = toDots(w.dayEntries[i].pointsByMission[missionId], m.weight); const cur = arr[dotIdx] ?? 0; let next=0; if(cur===0) next=1; else if(cur===1) next=-1; else if(cur===-1) next=0.5; else next=0; arr[dotIdx]=next; w.dayEntries[i].pointsByMission[missionId]=arr; return {...s, currentWeek:w}; }); }
   function finalize(){ setStore(s=>{ const archived=deep(s.currentWeek); applyBonusesAndMulligan(archived); const nw=newWeekFromTemplate(s.missions,new Date()); return {...s, history:[archived,...s.history].slice(0,104), currentWeek:nw}; }); setTab('report'); }
   function exportCaption(){ const w=store.history[0]||store.currentWeek; const fmt=(iso)=> new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric'}); const pct=(w.totals?.pct||0).toFixed(1); const cap=`Next Level — Week ${fmt(w.startISO)}–${fmt(w.endISO)}\nScore: ${Math.round(w.totals.earned)}/${Math.round(w.totals.possible)} (${pct}%)  Badge: ${w.totals.badge||'—'}\nWins: ${reportNotes.wins||'-'}\nL's: ${reportNotes.losses||'-'}\nLessons: ${reportNotes.lessons||'-'}`; navigator.clipboard.writeText(cap); }
-  function addMission(){ setStore(s=> ({...s, missions:[...s.missions, {id:rid(), name:'New Mission', weight:1, active:true, hiddenOnShare:false, polarity:'pos'}]})); }
+  function addMission(){
+  setStore(s=>{
+    const m = { id: rid(), name:'New Mission', weight:1, active:true, hiddenOnShare:false, polarity:'pos' };
+
+    // 1) add to master template
+    const missions = [...s.missions, m];
+
+    // 2) also add to current week’s template + all days
+    const w = deep(s.currentWeek);
+    w.templateSnapshot = [...w.templateSnapshot, m];
+    for(const d of w.dayEntries){
+      d.pointsByMission[m.id] = Array.from({length:m.weight}).fill(0);
+    }
+
+    return {...s, missions, currentWeek: w};
+  });
+}
+}
   function updateMission(i,patch){ setStore(s=>{ const ms=deep(s.missions); ms[i]={...ms[i],...patch}; const snap=s.currentWeek.templateSnapshot.findIndex(m=>m.id===ms[i].id); if(snap>=0){ s.currentWeek.templateSnapshot[snap]={...ms[i]}; for(const day of s.currentWeek.dayEntries){ day.pointsByMission[ms[i].id] = toDots(day.pointsByMission[ms[i].id], ms[i].weight); } } return {...s, missions:ms, currentWeek:{...s.currentWeek}}; }); }
   function removeMission(id){ setStore(s=> ({...s, missions: s.missions.filter(m=>m.id!==id)})); }
   function sample(){ const templ=deep(store.missions); const weeks=[]; let dt=new Date(); dt.setDate(dt.getDate()-7*8); for(let w=0; w<8; w++){ const wk=newWeekFromTemplate(templ, dt); wk.dayEntries.forEach(d=>{ for(const m of wk.templateSnapshot){ const arr = Array.from({length:m.weight}).fill(0).map(()=>{ const r=Math.random(); return r<0.1?-1 : r<0.2?0.5 : r<0.6?1 : 0; }); d.pointsByMission[m.id]=arr; } if(Math.random()<0.1){ d.earnedBonus=(d.earnedBonus||0)+5; } }); applyBonusesAndMulligan(wk); weeks.push(wk); dt=new Date(dt.getTime()+7*86400000); } setStore(s=>({...s, history: weeks.reverse().concat(s.history)})); }
